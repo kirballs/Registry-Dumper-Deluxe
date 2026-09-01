@@ -1,6 +1,6 @@
 # Registry Dumper Deluxe
 
-A developer/debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps registries, tags, recipes, and resource folders to disk so you can inspect exactly what is loaded in your game or server.
+A developer/debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps registries, tags, recipes, and resource folders to disk so you can inspect exactly what is loaded in your game or server. This is essentially a remastered version of [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) that i made for my own modpack needs.
 
 ### Persistent Mod Tracking (extra feature)
 
