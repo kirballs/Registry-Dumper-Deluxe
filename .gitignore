@@ -1,0 +1,35 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+.eclipse/
+bin/
+*.launch
+*.factorypath
+.vscode/
+
+# Minecraft
+run/
+logs/
+
+# Mod output
+mcmodsrepo/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Secrets
+*.pem
+*.key
