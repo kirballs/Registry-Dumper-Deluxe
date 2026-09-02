@@ -33,6 +33,6 @@ jobs:
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
         with:
-          name: RegistryDumper3000
+          name: RegistryDumperDeluxe
           path: build/libs/*.jar
           if-no-files-found: error
