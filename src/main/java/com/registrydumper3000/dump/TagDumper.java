@@ -9,8 +9,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.TagKey;
-import net.minecraftforge.resource.ResourceManager;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -18,7 +18,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Dumps tags in two ways:
@@ -58,7 +57,7 @@ public class TagDumper {
         int count = 0;
 
         // List all resources under data/*/tags/
-        Collection<ResourceLocation> allResources = rm.listResources("tags", path -> true);
+        Set<ResourceLocation> allResources = rm.listResources("tags", path -> true).keySet();
 
         // Build a summary grouped by namespace
         Map<String, List<ResourceLocation>> byNamespace = new TreeMap<>();
@@ -127,12 +126,17 @@ public class TagDumper {
             String registryName = registry.key().location().toString();
 
             // Collect all tags for this registry
-            Map<TagKey<?>, ? extends Collection<Holder<?>>> tagMap;
+            Map<TagKey<?>, List<String>> tagMap = new LinkedHashMap<>();
             try {
-                tagMap = registry.getTags().collect(Collectors.toMap(
-                        named -> named.key(),
-                        named -> named.value()
-                ));
+                registry.getTags().forEach(named -> {
+                    List<String> values = new ArrayList<>();
+                    for (Holder<?> holder : named.getSecond()) {
+                        values.add(holder.unwrapKey()
+                                .map(k -> k.location().toString())
+                                .orElse("<unknown>"));
+                    }
+                    tagMap.put(named.getFirst(), values);
+                });
             } catch (Exception e) {
                 RegistryDumper3000.LOGGER.debug("No tags for registry {}", registryName);
                 continue;
@@ -169,21 +173,18 @@ public class TagDumper {
     }
 
     private static void dumpExpandedTxt(
-            Map<TagKey<?>, ? extends Collection<Holder<?>>> tagMap,
+            Map<TagKey<?>, ? extends Collection<String>> tagMap,
             String registryName, Path dir) throws IOException {
         Path file = dir.resolve(DumpHelper.safeFileName(registryName) + "_tags.txt");
         try (BufferedWriter w = Files.newBufferedWriter(file)) {
             w.write(String.format("Expanded Tags for: %s%n", registryName));
             w.write(String.format("Tag sets: %d%n%n", tagMap.size()));
 
-            for (var entry : new TreeMap<>(tagMap).entrySet()) {
+            for (var entry : tagMap.entrySet()) {
                 TagKey<?> tagKey = entry.getKey();
                 w.write(String.format("[%s]%n", tagKey.location().toString()));
-                for (Holder<?> holder : entry.getValue()) {
-                    w.write(String.format("  %s%n",
-                            holder.unwrapKey()
-                                    .map(k -> k.location().toString())
-                                    .orElse("<unknown>")));
+                for (String value : entry.getValue()) {
+                    w.write(String.format("  %s%n", value));
                 }
                 w.write("\n");
             }
@@ -191,20 +192,18 @@ public class TagDumper {
     }
 
     private static void dumpExpandedJson(
-            Map<TagKey<?>, ? extends Collection<Holder<?>>> tagMap,
+            Map<TagKey<?>, ? extends Collection<String>> tagMap,
             String registryName, Path dir) throws IOException {
         JsonObject root = new JsonObject();
         root.addProperty("registry", registryName);
         root.addProperty("tagCount", tagMap.size());
 
         JsonObject tagsObj = new JsonObject();
-        for (var entry : new TreeMap<>(tagMap).entrySet()) {
+        for (var entry : tagMap.entrySet()) {
             TagKey<?> tagKey = entry.getKey();
             JsonArray values = new JsonArray();
-            for (Holder<?> holder : entry.getValue()) {
-                values.add(holder.unwrapKey()
-                        .map(k -> k.location().toString())
-                        .orElse("<unknown>"));
+            for (String value : entry.getValue()) {
+                values.add(value);
             }
             tagsObj.add(tagKey.location().toString(), values);
         }
