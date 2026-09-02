@@ -10,7 +10,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.TagKey;
-import net.minecraft.tags.TagManager;
 import net.minecraftforge.resource.ResourceManager;
 
 import java.io.BufferedWriter;
@@ -24,8 +23,8 @@ import java.util.stream.Collectors;
 /**
  * Dumps tags in two ways:
  * <ol>
- *   <li><b>Raw tag JSONs</b> — copied straight from the resource packs (data/*/tags/...).</li>
- *   <li><b>Expanded runtime tags</b> — the final merged tag contents after all
+ *   <li><b>Raw tag JSONs</b> - copied straight from the resource packs (data/[namespace]/tags/...).</li>
+ *   <li><b>Expanded runtime tags</b> - the final merged tag contents after all
  *       datapacks / mods have been applied.</li>
  * </ol>
  */

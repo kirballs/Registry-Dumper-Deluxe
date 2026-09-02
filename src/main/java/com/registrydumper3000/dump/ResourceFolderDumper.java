@@ -12,18 +12,17 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Dumps generic datapack resource folders (loot_tables, predicates, advancements,
- * functions, worldgen/*, dimension, damage_type, etc.) by copying raw files from
+ * functions, worldgen, dimension, damage_type, etc.) by copying raw files from
  * the ResourceManager.
  */
 public class ResourceFolderDumper {
 
     /**
      * Default folders to dump.  Each entry is the top-level data folder name
-     * (e.g. "loot_tables" matches data/*/loot_tables/**).
+     * (e.g. "loot_tables" matches data/[namespace]/loot_tables/...).
      */
     private static final List<String> DEFAULT_FOLDERS = List.of(
             "loot_tables",
