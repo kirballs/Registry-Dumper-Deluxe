@@ -4,7 +4,7 @@ import com.registrydumper3000.RegistryDumper3000;
 import com.registrydumper3000.config.DumpConfig;
 import com.registrydumper3000.util.DumpHelper;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.resource.ResourceManager;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -89,7 +89,7 @@ public class ResourceFolderDumper {
      */
     private static int dumpFolder(ResourceManager rm, Path outputDir, String folder) {
         // List all resources under this folder
-        Collection<ResourceLocation> resources = rm.listResources(folder, path -> true);
+        Set<ResourceLocation> resources = rm.listResources(folder, path -> true).keySet();
 
         int count = 0;
         for (ResourceLocation rl : resources) {

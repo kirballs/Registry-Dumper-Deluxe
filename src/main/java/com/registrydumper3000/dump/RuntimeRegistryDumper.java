@@ -4,7 +4,6 @@ import com.google.gson.*;
 import com.registrydumper3000.RegistryDumper3000;
 import com.registrydumper3000.config.DumpConfig;
 import com.registrydumper3000.util.DumpHelper;
-import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -100,13 +99,12 @@ public class RuntimeRegistryDumper {
             w.write(String.format("Registry: %s  (runtime / frozen)%n", registryName));
             w.write(String.format("Entries:  %d%n%n", registry.size()));
 
-            for (Holder<T> holder : registry) {
-                ResourceKey<T> key = holder.unwrapKey().orElse(null);
-                if (key == null) continue;
-                w.write(key.location().toString());
-                if (DumpConfig.includeClassNamesVal && holder.value() != null) {
+            for (ResourceLocation id : registry.keySet()) {
+                T value = registry.get(id);
+                w.write(id.toString());
+                if (DumpConfig.includeClassNamesVal && value != null) {
                     w.write(" -> ");
-                    w.write(holder.value().getClass().getName());
+                    w.write(value.getClass().getName());
                 }
                 w.write("\n");
             }
@@ -115,15 +113,14 @@ public class RuntimeRegistryDumper {
 
     private static <T> void dumpJson(Registry<T> registry, String registryName, Path dir) throws IOException {
         JsonArray entries = new JsonArray();
-        for (Holder<T> holder : registry) {
-            ResourceKey<T> key = holder.unwrapKey().orElse(null);
-            if (key == null) continue;
+        for (ResourceLocation id : registry.keySet()) {
+            T value = registry.get(id);
             JsonObject entry = new JsonObject();
-            entry.addProperty("id", key.location().toString());
-            entry.addProperty("namespace", key.location().getNamespace());
-            entry.addProperty("path", key.location().getPath());
-            if (DumpConfig.includeClassNamesVal && holder.value() != null) {
-                entry.addProperty("class", holder.value().getClass().getName());
+            entry.addProperty("id", id.toString());
+            entry.addProperty("namespace", id.getNamespace());
+            entry.addProperty("path", id.getPath());
+            if (DumpConfig.includeClassNamesVal && value != null) {
+                entry.addProperty("class", value.getClass().getName());
             }
             entries.add(entry);
         }

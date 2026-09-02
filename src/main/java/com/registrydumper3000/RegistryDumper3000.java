@@ -4,14 +4,13 @@ import com.registrydumper3000.config.DumpConfig;
 import com.registrydumper3000.dump.*;
 import com.registrydumper3000.persistent.PersistentRegistryTracker;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.resource.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,15 +36,6 @@ public class RegistryDumper3000 {
     }
 
     // ------------------------------------------------------------------
-    //  Capture the server-side ResourceManager as early as possible
-    // ------------------------------------------------------------------
-    @SubscribeEvent
-    public void onAddReloadListener(AddReloadListenerEvent event) {
-        resourceManager = event.getResourceManager();
-        LOGGER.debug("Registry Dumper 3000: captured ResourceManager");
-    }
-
-    // ------------------------------------------------------------------
     //  Main dump trigger — runs once the server is fully started
     // ------------------------------------------------------------------
     @SubscribeEvent
@@ -55,6 +45,7 @@ public class RegistryDumper3000 {
         try {
             DumpConfig.load();
             MinecraftServer server = event.getServer();
+            resourceManager = server.getResourceManager();
             Path dumpRoot = DumpConfig.outputFolder;
 
             Files.createDirectories(dumpRoot);

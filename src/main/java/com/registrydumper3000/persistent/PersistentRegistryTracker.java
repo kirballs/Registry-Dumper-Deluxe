@@ -4,10 +4,8 @@ import com.google.gson.*;
 import com.registrydumper3000.RegistryDumper3000;
 import com.registrydumper3000.config.DumpConfig;
 import com.registrydumper3000.util.DumpHelper;
-import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.ModList;
@@ -93,12 +91,9 @@ public class PersistentRegistryTracker {
 
             // Group CURRENT entries by namespace (mod id)
             Map<String, Set<String>> currentByMod = new LinkedHashMap<>();
-            for (Holder<?> holder : registry) {
-                ResourceKey<?> key = holder.unwrapKey().orElse(null);
-                if (key == null) continue;
-
-                String namespace = key.location().getNamespace();
-                String fullId = key.location().toString();
+            for (ResourceLocation id : registry.keySet()) {
+                String namespace = id.getNamespace();
+                String fullId = id.toString();
 
                 currentByMod
                         .computeIfAbsent(namespace, k -> new LinkedHashSet<>())
@@ -199,8 +194,8 @@ public class PersistentRegistryTracker {
             for (String regName : listSorted(registries.keySet())) {
                 JsonObject reg = registries.getAsJsonObject(regName);
                 int totalInReg = 0;
-                for (JsonElement arr : reg.values()) {
-                    totalInReg += arr.getAsJsonArray().size();
+                for (Map.Entry<String, JsonElement> regEntry : reg.entrySet()) {
+                    totalInReg += regEntry.getValue().getAsJsonArray().size();
                 }
                 w.write(String.format("\n  [%s] — %d total entries, %d mods:%n",
                         regName, totalInReg, reg.size()));
