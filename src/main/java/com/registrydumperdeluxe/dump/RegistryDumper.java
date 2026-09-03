@@ -4,38 +4,25 @@ import com.google.gson.*;
 import com.registrydumperdeluxe.RegistryDumperDeluxe;
 import com.registrydumperdeluxe.config.DumpConfig;
 import com.registrydumperdeluxe.util.DumpHelper;
-import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.resource.ResourceManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.function.Predicate;
 
 public class RegistryDumper {
 
-    public static void dumpAll(MinecraftServer server, ResourceManager rm, Path dir) {
+    public static void dumpAll(MinecraftServer server, Path dir) {
         dumpRegistry(dir, "items",        "item");
         dumpRegistry(dir, "entities",     "entity_type");
         dumpRegistry(dir, "sound_events", "sound_event");
         dumpRegistry(dir, "biomes",       "worldgen/biome", "biome");
         dumpRegistry(dir, "structures",   "structure", "worldgen/structure");
         dumpRegistry(dir, "features",     "worldgen/feature", "feature");
-
-        if (rm != null) {
-            dumpResources(dir, "tags",         rm, "tags",         null);
-            dumpResources(dir, "advancements", rm, "advancements", null);
-            dumpResources(dir, "loot_tables",  rm, "loot_tables",
-                          rel -> !rel.startsWith("blocks/"));
-        } else {
-            RegistryDumperDeluxe.LOGGER.warn("ResourceManager is null - skipping tags, advancements, loot_tables");
-        }
     }
 
     private static void dumpRegistry(Path dir, String fileName, String... possiblePaths) {
@@ -46,32 +33,6 @@ public class RegistryDumper {
         }
 
         Map<String, List<String>> grouped = groupByNamespace(registry);
-
-        if (DumpConfig.persistentTrackingVal) {
-            mergeWithExisting(dir, fileName, grouped);
-        }
-
-        writeFile(dir, fileName, grouped);
-
-        int total = grouped.values().stream().mapToInt(List::size).sum();
-        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} namespaces, {} entries)", fileName, grouped.size(), total);
-    }
-
-    private static void dumpResources(Path dir, String fileName, ResourceManager rm,
-                                       String prefix, Predicate<String> pathFilter) {
-        Map<String, List<String>> grouped = new TreeMap<>();
-
-        for (ResourceLocation rl : rm.listResources(prefix, p -> true)) {
-            String fullPath = rl.getPath();
-            String relative = fullPath.substring(prefix.length());
-            if (relative.startsWith("/")) relative = relative.substring(1);
-
-            if (pathFilter != null && !pathFilter.test(relative)) continue;
-
-            String ns = rl.getNamespace();
-            String id = ns + ":" + fullPath;
-            grouped.computeIfAbsent(ns, k -> new ArrayList<>()).add(id);
-        }
 
         if (DumpConfig.persistentTrackingVal) {
             mergeWithExisting(dir, fileName, grouped);
@@ -101,11 +62,9 @@ public class RegistryDumper {
 
     private static Map<String, List<String>> groupByNamespace(Registry<?> registry) {
         Map<String, List<String>> grouped = new TreeMap<>();
-        for (Holder<?> holder : registry) {
-            ResourceKey<?> key = holder.unwrapKey().orElse(null);
-            if (key == null) continue;
-            String ns = key.location().getNamespace();
-            String id = key.location().toString();
+        for (ResourceLocation location : registry.keySet()) {
+            String ns = location.getNamespace();
+            String id = location.toString();
             grouped.computeIfAbsent(ns, k -> new ArrayList<>()).add(id);
         }
         return grouped;
