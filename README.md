@@ -1,6 +1,6 @@
 # Registry Dumper Deluxe
 
-A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps 9 key registry and resource types as JSON files, with **persistent mod tracking** across startups.
+A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps 9 key registry and resource types as JSON files, with **persistent mod tracking** across startups. This is inspired by [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) but amplified for my modpack needs.
 
 ### Persistent Mod Tracking
 
