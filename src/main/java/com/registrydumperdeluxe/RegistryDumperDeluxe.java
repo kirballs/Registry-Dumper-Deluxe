@@ -1,7 +1,7 @@
-package com.registrydumper3000;
+package com.registrydumperdeluxe;
 
-import com.registrydumper3000.config.DumpConfig;
-import com.registrydumper3000.dump.RegistryDumper;
+import com.registrydumperdeluxe.config.DumpConfig;
+import com.registrydumperdeluxe.dump.RegistryDumper;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -16,15 +16,15 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-@Mod(RegistryDumper3000.MOD_ID)
-public class RegistryDumper3000 {
+@Mod(RegistryDumperDeluxe.MOD_ID)
+public class RegistryDumperDeluxe {
 
-    public static final String MOD_ID = "registrydumper3000";
+    public static final String MOD_ID = "registrydumperdeluxe";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static ResourceManager resourceManager;
 
-    public RegistryDumper3000() {
+    public RegistryDumperDeluxe() {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, DumpConfig.SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         LOGGER.info("Registry Dumper Deluxe initialized");

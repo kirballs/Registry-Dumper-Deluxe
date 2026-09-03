@@ -1,4 +1,4 @@
-package com.registrydumper3000.config;
+package com.registrydumperdeluxe.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 

@@ -1,4 +1,4 @@
-package com.registrydumper3000.util;
+package com.registrydumperdeluxe.util;
 
 import com.google.gson.*;
 
