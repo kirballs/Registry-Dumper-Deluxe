@@ -27,7 +27,7 @@ public class RegistryDumper3000 {
     public RegistryDumper3000() {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, DumpConfig.SPEC);
         MinecraftForge.EVENT_BUS.register(this);
-        LOGGER.info("Registry Dumper 3000 initialized");
+        LOGGER.info("Registry Dumper Deluxe initialized");
     }
 
     @SubscribeEvent
@@ -37,15 +37,15 @@ public class RegistryDumper3000 {
 
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
-        LOGGER.info("Registry Dumper 3000: starting dump...");
+        LOGGER.info("Registry Dumper Deluxe: starting dump...");
         try {
             DumpConfig.load();
             Path dir = DumpConfig.outputFolder;
             Files.createDirectories(dir);
             RegistryDumper.dumpAll(event.getServer(), resourceManager, dir);
-            LOGGER.info("Registry Dumper 3000: dump complete!");
+            LOGGER.info("Registry Dumper Deluxe: dump complete!");
         } catch (Exception e) {
-            LOGGER.error("Registry Dumper 3000: error during dump!", e);
+            LOGGER.error("Registry Dumper Deluxe: error during dump!", e);
         }
     }
 }

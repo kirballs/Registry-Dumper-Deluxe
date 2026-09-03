@@ -17,7 +17,7 @@ public class DumpConfig {
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
-        builder.comment("Registry Dumper 3000 Configuration").push("general");
+        builder.comment("Registry Dumper Deluxe Configuration").push("general");
 
         outputFolderStr = builder
                 .comment("Output folder for dumps (relative to game directory)")
