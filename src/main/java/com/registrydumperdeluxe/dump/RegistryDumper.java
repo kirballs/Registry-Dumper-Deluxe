@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 public class RegistryDumper {
 
@@ -67,7 +66,15 @@ public class RegistryDumper {
         }
         names.sort(String.CASE_INSENSITIVE_ORDER);
 
-        writeTextFile(dir, "mods", names, false);
+        // mods.txt: plain names, one per line, no commas/quotes
+        Path file = dir.resolve("mods.txt");
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, String.join("\n", names) + "\n", StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            RegistryDumperDeluxe.LOGGER.error("Failed to write mods", e);
+        }
 
         RegistryDumperDeluxe.LOGGER.info("Dumped mods ({} entries)", names.size());
     }
@@ -86,7 +93,7 @@ public class RegistryDumper {
         if (DumpConfig.persistentTrackingVal) {
             mergeWithExisting(dir, fileName, ids);
         }
-        writeTextFile(dir, fileName, sortIds(ids), true);
+        writeRegistryFile(dir, fileName, ids);
 
         RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
@@ -118,7 +125,7 @@ public class RegistryDumper {
         if (DumpConfig.persistentTrackingVal) {
             mergeWithExisting(dir, fileName, ids);
         }
-        writeTextFile(dir, fileName, sortIds(ids), true);
+        writeRegistryFile(dir, fileName, ids);
 
         RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
@@ -145,7 +152,7 @@ public class RegistryDumper {
         if (DumpConfig.persistentTrackingVal) {
             mergeWithExisting(dir, fileName, ids);
         }
-        writeTextFile(dir, fileName, sortIds(ids), true);
+        writeRegistryFile(dir, fileName, ids);
 
         RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
@@ -176,27 +183,53 @@ public class RegistryDumper {
         return ids;
     }
 
-    private static List<String> sortIds(Set<String> ids) {
+    /**
+     * Write a registry dump file in the format:
+     *   Total Elements: 1234
+     *   "minecraft:apple",
+     *   "minecraft:acacia_boat",
+     *   ...
+     */
+    private static void writeRegistryFile(Path dir, String fileName, Set<String> ids) {
         List<String> sorted = new ArrayList<>(ids);
         sorted.sort(String.CASE_INSENSITIVE_ORDER);
-        return sorted;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Total Elements: ").append(sorted.size()).append("\n");
+        for (String id : sorted) {
+            sb.append("\"").append(id).append("\",\n");
+        }
+
+        Path file = dir.resolve(fileName + ".json");
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            RegistryDumperDeluxe.LOGGER.error("Failed to write {}", fileName, e);
+        }
     }
 
     /**
-     * Persistent merge: read existing .txt file and add any IDs that
-     * aren't in the current set. This keeps entries from removed mods.
+     * Persistent merge: read existing .json file, extract IDs from
+     * quoted lines, and add any that aren't in the current set.
+     * This keeps entries from removed mods.
      */
     private static void mergeWithExisting(Path dir, String fileName, Set<String> current) {
-        Path file = dir.resolve(fileName + ".txt");
+        Path file = dir.resolve(fileName + ".json");
         if (!Files.exists(file)) return;
 
         try {
-            List<String> existing = Files.readAllLines(file, StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
             int added = 0;
-            for (String line : existing) {
-                String trimmed = line.trim();
-                if (!trimmed.isEmpty() && current.add(trimmed)) {
-                    added++;
+            for (String line : lines) {
+                line = line.trim();
+                // Skip header line and empty lines
+                if (line.startsWith("Total") || line.isEmpty()) continue;
+                // Strip quotes and comma: "minecraft:apple", -> minecraft:apple
+                if (line.startsWith("\"") && line.endsWith("\",")) {
+                    String id = line.substring(1, line.length() - 2);
+                    if (current.add(id)) added++;
                 }
             }
             if (added > 0) {
@@ -204,22 +237,6 @@ public class RegistryDumper {
             }
         } catch (IOException e) {
             RegistryDumperDeluxe.LOGGER.debug("Could not read existing file for {}", fileName);
-        }
-    }
-
-    /**
-     * Write a plain-text file: one entry per line, no brackets, no commas.
-     */
-    private static void writeTextFile(Path dir, String fileName, List<String> lines, boolean addNewline) {
-        Path file = dir.resolve(fileName + ".txt");
-        try {
-            Files.createDirectories(file.getParent());
-            String content = String.join("\n", lines);
-            if (addNewline && !content.isEmpty()) content += "\n";
-            Files.writeString(file, content, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (IOException e) {
-            RegistryDumperDeluxe.LOGGER.error("Failed to write {}", fileName, e);
         }
     }
 }
