@@ -28,6 +28,8 @@ On every server startup, 9 JSON files are created (or updated) in the `dump/` fo
 | `advancements.json` | Resource manager (`advancements/`) | All advancement resource locations |
 | `loot_tables.json` | Resource manager (`loot_tables/`) | Chest, entity, gameplay loot tables (blocks excluded) |
 
+Additionally, a `mods.txt` file will display every mod detected on each startup, but they do not persist in the file.
+
 ### Output Format
 
 Each file groups IDs by their namespace (mod ID), pretty-printed:
