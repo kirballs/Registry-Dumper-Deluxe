@@ -1,54 +1,69 @@
 # Registry Dumper Deluxe
 
-A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps 9 key registry and resource types as JSON files, with **persistent mod tracking** across startups. This is inspired by [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) but amplified for my modpack needs.
+A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps key registry and resource types as files, with **persistent mod tracking** across startups. Inspired by [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) but amplified for modpack needs.
 
 ### Persistent Mod Tracking
 
-Entries are accumulated across startups and never removed:
+Registry entries are accumulated across startups and never removed:
 
-1. Start with *Alex's Mobs* + *Croptopia* - both mods' entries are saved.
-2. Remove *Croptopia*, add *Nether's Expansion* - Alex's Mobs entries stay, Croptopia entries **stay**, Nether's Expansion entries are added.
+1. Start with *Alex's Mobs* + *Croptopia* — both mods' entries are saved.
+2. Remove *Croptopia*, add *Nether's Expansion* — Alex's Mobs entries stay, Croptopia entries **stay**, Nether's Expansion entries are added.
 3. No entry is ever written twice for the same mod.
+
+> **Note:** The `mods.txt` file is **not** persistent — it is overwritten fresh each session with only currently loaded mods.
 
 ---
 
 ## What Gets Dumped
 
-On every server startup, 9 JSON files are created (or updated) in the `dump/` folder:
+On every server startup, the following files are created (or updated) in the `dump/` folder:
 
 | File | Source | Details |
 |---|---|---|
+| `mods.txt` | Forge mod list | Display names of all loaded mods (non-persistent) |
 | `items.json` | `minecraft:item` registry | All registered items |
 | `entities.json` | `minecraft:entity_type` registry | All registered entity types |
 | `sound_events.json` | `minecraft:sound_event` registry | All registered sound events |
-| `biomes.json` | `minecraft:worldgen/biome` registry | All registered biomes |
-| `structures.json` | `minecraft:structure` registry | All registered structures |
+| `biomes.json` | `minecraft:worldgen/biome` registry | All registered biomes (dynamic registry) |
+| `structures.json` | `minecraft:structure` registry | All registered structures (dynamic registry) |
 | `features.json` | `minecraft:worldgen/feature` registry | Configured features (e.g. ore veins, ant hills) |
 | `tags.json` | Resource manager (`tags/`) | All tag resource locations |
 | `advancements.json` | Resource manager (`advancements/`) | All advancement resource locations |
-| `loot_tables.json` | Resource manager (`loot_tables/`) | Chest, entity, gameplay loot tables (blocks excluded) |
+
+### Loot Tables Subfolder
+
+Loot tables are split into a `loot_tables/` subfolder with three separate files:
+
+| File | Paths included | Details |
+|---|---|---|
+| `loot_tables/entity.json` | `loot_tables/entities/*` | Entity drop tables |
+| `loot_tables/chest.json` | `loot_tables/chests/*` | Chest loot tables |
+| `loot_tables/misc.json` | Everything else except `blocks/` | Gameplay, custom, and other loot tables |
+
+Block loot tables (`loot_tables/blocks/`) are excluded entirely since every block drops itself — that information is redundant.
 
 Additionally, a `mods.txt` file will display every mod detected on each startup, but they do not persist in the file.
 
 ### Output Format
 
-Each file groups IDs by their namespace (mod ID), pretty-printed:
+**Registry files** (`.json`) use a flat list format with a total count header:
 
-```json
-{
-  "minecraft": [
-    "minecraft:stone",
-    "minecraft:dirt",
-    "minecraft:diamond_ore"
-  ],
-  "alexsmobs": [
-    "alexsmobs:crocodile",
-    "alexsmobs:anteater"
-  ],
-  "croptopia": [
-    "croptopia:apple"
-  ]
-}
+```
+Total Elements: 1234
+"minecraft:apple",
+"minecraft:acacia_boat",
+"alexsmobs:crocodile_egg",
+...
+```
+
+**`mods.txt`** is plain text — one mod display name per line, sorted alphabetically:
+
+```
+Alex's Mobs
+Create
+Farmer's Delight
+Minecraft
+...
 ```
 
 ---
@@ -63,10 +78,6 @@ Each file groups IDs by their namespace (mod ID), pretty-printed:
 ### Local build
 
 ```bash
-# Generate wrapper (first time only, if missing)
-gradle wrapper --gradle-version 8.1.1
-
-# Build
 ./gradlew build
 ```
 
@@ -83,7 +94,7 @@ Go to **Actions** tab, select **Build Mod** workflow, click **Run workflow**. Do
 1. Build or download the JAR.
 2. Copy into your `mods/` folder.
 3. Launch the game or server.
-4. Check the `dump/` folder for the 9 JSON files.
+4. Check the `dump/` folder for the output files.
 
 ---
 

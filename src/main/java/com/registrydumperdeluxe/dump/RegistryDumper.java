@@ -40,8 +40,7 @@ public class RegistryDumper {
         if (rm != null) {
             safeDump("tags",         () -> dumpResources(dir, "tags",         rm, "tags",         null));
             safeDump("advancements", () -> dumpResources(dir, "advancements", rm, "advancements", null));
-            safeDump("loot_tables",  () -> dumpResources(dir, "loot_tables",  rm, "loot_tables",
-                          rel -> !rel.startsWith("blocks/")));
+            safeDump("loot_tables", () -> dumpLootTables(dir, rm));
         } else {
             RegistryDumperDeluxe.LOGGER.warn("ResourceManager is null - skipping tags, advancements, loot_tables");
         }
@@ -155,6 +154,57 @@ public class RegistryDumper {
         writeRegistryFile(dir, fileName, ids);
 
         RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
+    }
+
+    /* ===================== loot tables (split into subfolder) ===================== */
+
+    /**
+     * Dump loot tables into a loot_tables/ subfolder with three files:
+     *   - entity.json  (loot_tables/entities/*)
+     *   - chest.json   (loot_tables/chests/*)
+     *   - misc.json    (everything else except blocks/)
+     */
+    private static void dumpLootTables(Path dir, ResourceManager rm) {
+        Path ltDir = dir.resolve("loot_tables");
+
+        Set<String> entityIds = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> chestIds  = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> miscIds   = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+        Map<ResourceLocation, ?> resourceMap = rm.listResources("loot_tables", p -> true);
+        RegistryDumperDeluxe.LOGGER.info("listResources('loot_tables') found {} resource paths", resourceMap.size());
+
+        for (ResourceLocation rl : resourceMap.keySet()) {
+            String fullPath = rl.getPath();
+            String relative = fullPath.substring("loot_tables".length());
+            if (relative.startsWith("/")) relative = relative.substring(1);
+
+            // Skip block loot tables entirely
+            if (relative.startsWith("blocks/")) continue;
+
+            String id = rl.getNamespace() + ":" + fullPath;
+
+            if (relative.startsWith("entities/")) {
+                entityIds.add(id);
+            } else if (relative.startsWith("chests/")) {
+                chestIds.add(id);
+            } else {
+                miscIds.add(id);
+            }
+        }
+
+        // Write each sub-file with persistent tracking
+        String[] names = {"entity", "chest", "misc"};
+        @SuppressWarnings("unchecked")
+        Set<String>[] sets = new Set[]{entityIds, chestIds, miscIds};
+
+        for (int i = 0; i < names.length; i++) {
+            if (DumpConfig.persistentTrackingVal) {
+                mergeWithExisting(ltDir, names[i], sets[i]);
+            }
+            writeRegistryFile(ltDir, names[i], sets[i]);
+            RegistryDumperDeluxe.LOGGER.info("Dumped loot_tables/{} ({} entries)", names[i], sets[i].size());
+        }
     }
 
     /* ===================== helpers ===================== */
