@@ -1,9 +1,7 @@
 package com.registrydumperdeluxe.dump;
 
-import com.google.gson.*;
 import com.registrydumperdeluxe.RegistryDumperDeluxe;
 import com.registrydumperdeluxe.config.DumpConfig;
-import com.registrydumperdeluxe.util.DumpHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -12,16 +10,23 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraftforge.fml.ModList;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class RegistryDumper {
 
     public static void dumpAll(MinecraftServer server, ResourceManager rm, Path dir) {
+        // --- Mod list (non-persistent, overwritten every session) ---
+        safeDump("mods", () -> dumpModList(dir));
+
         // --- Static registries (from BuiltInRegistries) ---
         safeDump("items",        () -> dumpRegistry(dir, "items",        "item"));
         safeDump("entities",     () -> dumpRegistry(dir, "entities",     "entity_type"));
@@ -29,14 +34,10 @@ public class RegistryDumper {
         safeDump("features",     () -> dumpRegistry(dir, "features",     "worldgen/feature", "feature"));
 
         // --- Dynamic registries (from server.registryAccess()) ---
-        // Biomes and structures are NOT in BuiltInRegistries in 1.20.1;
-        // they are datapack-driven and only available via the server's RegistryAccess.
         safeDump("biomes",     () -> dumpDynamicRegistry(dir, "biomes",     server, Registries.BIOME));
         safeDump("structures", () -> dumpDynamicRegistry(dir, "structures", server, Registries.STRUCTURE));
 
         // --- Resource-based dumps (from ResourceManager) ---
-        // Tags, advancements, and loot_tables are datapack resources,
-        // not vanilla registries. We discover them via ResourceManager.listResources().
         if (rm != null) {
             safeDump("tags",         () -> dumpResources(dir, "tags",         rm, "tags",         null));
             safeDump("advancements", () -> dumpResources(dir, "advancements", rm, "advancements", null));
@@ -57,33 +58,41 @@ public class RegistryDumper {
         }
     }
 
+    /* ===================== mod list (non-persistent) ===================== */
+
+    private static void dumpModList(Path dir) {
+        List<String> names = new ArrayList<>();
+        for (var mod : ModList.get().getMods()) {
+            names.add(mod.getDisplayName());
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+
+        writeTextFile(dir, "mods", names, false);
+
+        RegistryDumperDeluxe.LOGGER.info("Dumped mods ({} entries)", names.size());
+    }
+
     /* ===================== static registries ===================== */
 
     private static void dumpRegistry(Path dir, String fileName, String... possiblePaths) {
         Registry<?> registry = findRegistry(possiblePaths);
         if (registry == null) {
-            RegistryDumperDeluxe.LOGGER.warn("Built-in registry not found for: {} (tried {})", fileName, Arrays.toString(possiblePaths));
+            RegistryDumperDeluxe.LOGGER.warn("Built-in registry not found for: {} (tried {})",
+                    fileName, Arrays.toString(possiblePaths));
             return;
         }
 
-        Map<String, List<String>> grouped = groupByNamespace(registry);
-
+        Set<String> ids = collectIds(registry);
         if (DumpConfig.persistentTrackingVal) {
-            mergeWithExisting(dir, fileName, grouped);
+            mergeWithExisting(dir, fileName, ids);
         }
+        writeTextFile(dir, fileName, sortIds(ids), true);
 
-        writeFile(dir, fileName, grouped);
-
-        int total = grouped.values().stream().mapToInt(List::size).sum();
-        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} namespaces, {} entries)", fileName, grouped.size(), total);
+        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
 
     /* ===================== dynamic registries ===================== */
 
-    /**
-     * Dump a dynamic registry (biomes, structures) that is only available
-     * through the server's RegistryAccess, NOT through BuiltInRegistries.
-     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void dumpDynamicRegistry(Path dir, String fileName,
                                              MinecraftServer server,
@@ -105,29 +114,21 @@ public class RegistryDumper {
         }
 
         Registry<?> registry = optReg.get();
-        Map<String, List<String>> grouped = groupByNamespace(registry);
-
+        Set<String> ids = collectIds(registry);
         if (DumpConfig.persistentTrackingVal) {
-            mergeWithExisting(dir, fileName, grouped);
+            mergeWithExisting(dir, fileName, ids);
         }
+        writeTextFile(dir, fileName, sortIds(ids), true);
 
-        writeFile(dir, fileName, grouped);
-
-        int total = grouped.values().stream().mapToInt(List::size).sum();
-        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} namespaces, {} entries)", fileName, grouped.size(), total);
+        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
 
     /* ===================== resource-based dumps ===================== */
 
-    /**
-     * Dump resources discovered via ResourceManager.listResources().
-     * Used for tags, advancements, and loot_tables which are datapack resources.
-     */
     private static void dumpResources(Path dir, String fileName, ResourceManager rm,
                                        String prefix, Predicate<String> pathFilter) {
-        Map<String, List<String>> grouped = new TreeMap<>();
+        Set<String> ids = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-        // listResources returns Map<ResourceLocation, Resource>
         Map<ResourceLocation, ?> resourceMap = rm.listResources(prefix, p -> true);
         RegistryDumperDeluxe.LOGGER.info("listResources('{}') found {} resource paths", prefix, resourceMap.size());
 
@@ -138,19 +139,15 @@ public class RegistryDumper {
 
             if (pathFilter != null && !pathFilter.test(relative)) continue;
 
-            String ns = rl.getNamespace();
-            String id = ns + ":" + fullPath;
-            grouped.computeIfAbsent(ns, k -> new ArrayList<>()).add(id);
+            ids.add(rl.getNamespace() + ":" + fullPath);
         }
 
         if (DumpConfig.persistentTrackingVal) {
-            mergeWithExisting(dir, fileName, grouped);
+            mergeWithExisting(dir, fileName, ids);
         }
+        writeTextFile(dir, fileName, sortIds(ids), true);
 
-        writeFile(dir, fileName, grouped);
-
-        int total = grouped.values().stream().mapToInt(List::size).sum();
-        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} namespaces, {} entries)", fileName, grouped.size(), total);
+        RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
     }
 
     /* ===================== helpers ===================== */
@@ -171,66 +168,56 @@ public class RegistryDumper {
         return null;
     }
 
-    private static Map<String, List<String>> groupByNamespace(Registry<?> registry) {
-        Map<String, List<String>> grouped = new TreeMap<>();
+    private static Set<String> collectIds(Registry<?> registry) {
+        Set<String> ids = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         for (ResourceLocation location : registry.keySet()) {
-            String ns = location.getNamespace();
-            String id = location.toString();
-            grouped.computeIfAbsent(ns, k -> new ArrayList<>()).add(id);
+            ids.add(location.toString());
         }
-        return grouped;
+        return ids;
     }
 
-    @SuppressWarnings("unchecked")
-    private static void mergeWithExisting(Path dir, String fileName,
-                                          Map<String, List<String>> current) {
-        Path file = dir.resolve(fileName + ".json");
+    private static List<String> sortIds(Set<String> ids) {
+        List<String> sorted = new ArrayList<>(ids);
+        sorted.sort(String.CASE_INSENSITIVE_ORDER);
+        return sorted;
+    }
+
+    /**
+     * Persistent merge: read existing .txt file and add any IDs that
+     * aren't in the current set. This keeps entries from removed mods.
+     */
+    private static void mergeWithExisting(Path dir, String fileName, Set<String> current) {
+        Path file = dir.resolve(fileName + ".txt");
         if (!Files.exists(file)) return;
 
         try {
-            JsonElement el = DumpHelper.readJson(file);
-            if (el == null || !el.isJsonObject()) return;
-            JsonObject existing = el.getAsJsonObject();
-
-            for (String namespace : existing.keySet()) {
-                if (!current.containsKey(namespace)) {
-                    JsonArray arr = existing.getAsJsonArray(namespace);
-                    List<String> entries = new ArrayList<>();
-                    for (JsonElement e : arr) entries.add(e.getAsString());
-                    current.put(namespace, entries);
-                } else {
-                    JsonArray arr = existing.getAsJsonArray(namespace);
-                    Set<String> existingIds = new HashSet<>();
-                    List<String> merged = new ArrayList<>();
-                    for (JsonElement e : arr) {
-                        String id = e.getAsString();
-                        existingIds.add(id);
-                        merged.add(id);
-                    }
-                    for (String id : current.get(namespace)) {
-                        if (!existingIds.contains(id)) {
-                            merged.add(id);
-                        }
-                    }
-                    current.put(namespace, merged);
+            List<String> existing = Files.readAllLines(file, StandardCharsets.UTF_8);
+            int added = 0;
+            for (String line : existing) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty() && current.add(trimmed)) {
+                    added++;
                 }
             }
-        } catch (Exception e) {
-            RegistryDumperDeluxe.LOGGER.debug("Could not merge persistent data for {}", fileName);
+            if (added > 0) {
+                RegistryDumperDeluxe.LOGGER.info("Persisted {} old entries for {}", added, fileName);
+            }
+        } catch (IOException e) {
+            RegistryDumperDeluxe.LOGGER.debug("Could not read existing file for {}", fileName);
         }
     }
 
-    private static void writeFile(Path dir, String fileName, Map<String, List<String>> grouped) {
-        JsonObject root = new JsonObject();
-        for (Map.Entry<String, List<String>> entry : grouped.entrySet()) {
-            JsonArray arr = new JsonArray();
-            for (String id : entry.getValue()) {
-                arr.add(id);
-            }
-            root.add(entry.getKey(), arr);
-        }
+    /**
+     * Write a plain-text file: one entry per line, no brackets, no commas.
+     */
+    private static void writeTextFile(Path dir, String fileName, List<String> lines, boolean addNewline) {
+        Path file = dir.resolve(fileName + ".txt");
         try {
-            DumpHelper.writeJson(dir.resolve(fileName + ".json"), root, true);
+            Files.createDirectories(file.getParent());
+            String content = String.join("\n", lines);
+            if (addNewline && !content.isEmpty()) content += "\n";
+            Files.writeString(file, content, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
             RegistryDumperDeluxe.LOGGER.error("Failed to write {}", fileName, e);
         }
