@@ -1,6 +1,6 @@
 # Registry Dumper Deluxe
 
-A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps key registry and resource types as files, with **persistent mod tracking** across startups. Inspired by [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) but amplified for modpack needs.
+A debugging utility mod for **Minecraft Forge 1.20.1** (Forge 47.x) that dumps key registry and resource types as files, with **persistent mod tracking** across startups. Inspired by [Registry Dumper 3000](https://www.curseforge.com/minecraft/mc-mods/registry-dumper-3000) but amplified for my modpack needs. I made this public so that it can help other people with what i think is one of the most obvious issue when making modpacks: knowing what exists in the game 
 
 ### Persistent Mod Tracking
 
