@@ -61,6 +61,7 @@ public class RegistryDumper {
     private static void dumpModList(Path dir) {
         List<String> names = new ArrayList<>();
         for (var mod : ModList.get().getMods()) {
+            if (DumpConfig.isBlacklisted(mod.getModId())) continue;
             names.add(mod.getDisplayName());
         }
         names.sort(String.CASE_INSENSITIVE_ORDER);
@@ -144,6 +145,7 @@ public class RegistryDumper {
             if (relative.startsWith("/")) relative = relative.substring(1);
 
             if (pathFilter != null && !pathFilter.test(relative)) continue;
+            if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
 
             ids.add(rl.getNamespace() + ":" + fullPath);
         }
@@ -186,6 +188,8 @@ public class RegistryDumper {
             if (relative.startsWith("/")) relative = relative.substring(1);
 
             String id = rl.getNamespace() + ":" + fullPath;
+
+            if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
 
             if (relative.startsWith("entity_types/")) {
                 entityTypesIds.add(id);
@@ -241,6 +245,9 @@ public class RegistryDumper {
             // Skip block loot tables entirely
             if (relative.startsWith("blocks/")) continue;
 
+            // Skip blacklisted mods
+            if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
+
             String id = rl.getNamespace() + ":" + fullPath;
 
             if (relative.startsWith("entities/")) {
@@ -287,9 +294,17 @@ public class RegistryDumper {
     private static Set<String> collectIds(Registry<?> registry) {
         Set<String> ids = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         for (ResourceLocation location : registry.keySet()) {
+            if (DumpConfig.isBlacklisted(location.getNamespace())) continue;
             ids.add(location.toString());
         }
         return ids;
+    }
+
+    /** Check if an ID's namespace is blacklisted. ID format: "namespace:path" */
+    private static boolean isIdBlacklisted(String id) {
+        int colon = id.indexOf(':');
+        if (colon < 0) return false;
+        return DumpConfig.isBlacklisted(id.substring(0, colon));
     }
 
     /**
@@ -322,7 +337,7 @@ public class RegistryDumper {
     /**
      * Persistent merge: read existing .json file, extract IDs from
      * quoted lines, and add any that aren't in the current set.
-     * This keeps entries from removed mods.
+     * Keeps entries from removed mods, but removes entries from blacklisted mods.
      */
     private static void mergeWithExisting(Path dir, String fileName, Set<String> current) {
         Path file = dir.resolve(fileName + ".json");
@@ -331,6 +346,7 @@ public class RegistryDumper {
         try {
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
             int added = 0;
+            int purged = 0;
             for (String line : lines) {
                 line = line.trim();
                 // Skip header line and empty lines
@@ -338,11 +354,19 @@ public class RegistryDumper {
                 // Strip quotes and comma: "minecraft:apple", -> minecraft:apple
                 if (line.startsWith("\"") && line.endsWith("\",")) {
                     String id = line.substring(1, line.length() - 2);
+                    // Skip blacklisted mods — purge their old entries
+                    if (isIdBlacklisted(id)) {
+                        purged++;
+                        continue;
+                    }
                     if (current.add(id)) added++;
                 }
             }
             if (added > 0) {
                 RegistryDumperDeluxe.LOGGER.info("Persisted {} old entries for {}", added, fileName);
+            }
+            if (purged > 0) {
+                RegistryDumperDeluxe.LOGGER.info("Purged {} blacklisted entries from {}", purged, fileName);
             }
         } catch (IOException e) {
             RegistryDumperDeluxe.LOGGER.debug("Could not read existing file for {}", fileName);

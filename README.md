@@ -116,6 +116,7 @@ Auto-generated at `config/registrydumperdeluxe.toml`:
 |---|---|---|
 | `outputFolder` | `dump` | Output folder (relative to game directory) |
 | `persistentTracking` | `true` | Keep entries from removed mods, never duplicate |
+| `blacklist` | `[]` | List of mod IDs to exclude from all dumps. Their entries are purged from existing JSON files on startup, and new entries from these mods are skipped. Example: `["alexsmobs", "create"]` |
 
 ---
 

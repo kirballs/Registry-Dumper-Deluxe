@@ -32,6 +32,9 @@ public class RegistryDumperDeluxe {
         LOGGER.info("Registry Dumper Deluxe: starting dump...");
         try {
             DumpConfig.load();
+            if (!DumpConfig.blacklist.isEmpty()) {
+                LOGGER.info("Blacklisted mods: {}", DumpConfig.blacklist);
+            }
             Path dir = DumpConfig.outputFolder;
             Files.createDirectories(dir);
             ResourceManager resourceManager = event.getServer().getResourceManager();
