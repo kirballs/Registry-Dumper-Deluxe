@@ -27,8 +27,20 @@ On every server startup, the following files are created (or updated) in the `du
 | `biomes.json` | `minecraft:worldgen/biome` registry | All registered biomes (dynamic registry) |
 | `structures.json` | `minecraft:structure` registry | All registered structures (dynamic registry) |
 | `features.json` | `minecraft:worldgen/feature` registry | Configured features (e.g. ore veins, ant hills) |
-| `tags.json` | Resource manager (`tags/`) | All tag resource locations |
 | `advancements.json` | Resource manager (`advancements/`) | All advancement resource locations |
+
+### Tags Subfolder
+
+Tags are split into a `tags/` subfolder with six separate files:
+
+| File | Paths included | Details |
+|---|---|---|
+| `tags/entity_types.json` | `tags/entity_types/*` | Entity type tags |
+| `tags/blocks.json` | `tags/blocks/*` | Block tags |
+| `tags/items.json` | `tags/items/*` | Item tags |
+| `tags/worldgen_biome.json` | `tags/worldgen/biome/*` | Biome tags |
+| `tags/worldgen_structure.json` | `tags/worldgen/structure/*` | Structure tags |
+| `tags/misc.json` | Everything else | Fluid, function, game event, and other tags |
 
 ### Loot Tables Subfolder
 
@@ -37,12 +49,10 @@ Loot tables are split into a `loot_tables/` subfolder with three separate files:
 | File | Paths included | Details |
 |---|---|---|
 | `loot_tables/entity.json` | `loot_tables/entities/*` | Entity drop tables |
-| `loot_tables/chest.json` | `loot_tables/chests/*` | Chest loot tables |
-| `loot_tables/misc.json` | Everything else except `blocks/` | Gameplay, custom, and other loot tables |
+| `loot_table/chest.json` | `loot_tables/chests/*` | Chest loot tables |
+| `loot_table/misc.json` | Everything else except `blocks/` | Gameplay, custom, and other loot tables |
 
 Block loot tables (`loot_tables/blocks/`) are excluded entirely since every block drops itself — that information is redundant.
-
-Additionally, a `mods.txt` file will display every mod detected on each startup, but they do not persist in the file.
 
 ### Output Format
 

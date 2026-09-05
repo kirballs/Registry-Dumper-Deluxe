@@ -38,7 +38,7 @@ public class RegistryDumper {
 
         // --- Resource-based dumps (from ResourceManager) ---
         if (rm != null) {
-            safeDump("tags",         () -> dumpResources(dir, "tags",         rm, "tags",         null));
+            safeDump("tags",         () -> dumpTags(dir, rm));
             safeDump("advancements", () -> dumpResources(dir, "advancements", rm, "advancements", null));
             safeDump("loot_tables", () -> dumpLootTables(dir, rm));
         } else {
@@ -154,6 +154,65 @@ public class RegistryDumper {
         writeRegistryFile(dir, fileName, ids);
 
         RegistryDumperDeluxe.LOGGER.info("Dumped {} ({} entries)", fileName, ids.size());
+    }
+
+    /* ===================== tags (split into subfolder) ===================== */
+
+    /**
+     * Dump tags into a tags/ subfolder with six files:
+     *   - entity_types.json  (tags/entity_types/*)
+     *   - blocks.json        (tags/blocks/*)
+     *   - items.json         (tags/items/*)
+     *   - worldgen_biome.json     (tags/worldgen/biome/*)
+     *   - worldgen_structure.json (tags/worldgen/structure/*)
+     *   - misc.json          (everything else)
+     */
+    private static void dumpTags(Path dir, ResourceManager rm) {
+        Path tagDir = dir.resolve("tags");
+
+        Set<String> entityTypesIds    = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> blocksIds         = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> itemsIds          = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> worldgenBiomeIds  = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> worldgenStructIds = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> miscIds           = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+        Map<ResourceLocation, ?> resourceMap = rm.listResources("tags", p -> true);
+        RegistryDumperDeluxe.LOGGER.info("listResources('tags') found {} resource paths", resourceMap.size());
+
+        for (ResourceLocation rl : resourceMap.keySet()) {
+            String fullPath = rl.getPath();
+            String relative = fullPath.substring("tags".length());
+            if (relative.startsWith("/")) relative = relative.substring(1);
+
+            String id = rl.getNamespace() + ":" + fullPath;
+
+            if (relative.startsWith("entity_types/")) {
+                entityTypesIds.add(id);
+            } else if (relative.startsWith("blocks/")) {
+                blocksIds.add(id);
+            } else if (relative.startsWith("items/")) {
+                itemsIds.add(id);
+            } else if (relative.startsWith("worldgen/biome/")) {
+                worldgenBiomeIds.add(id);
+            } else if (relative.startsWith("worldgen/structure/")) {
+                worldgenStructIds.add(id);
+            } else {
+                miscIds.add(id);
+            }
+        }
+
+        String[] names = {"entity_types", "blocks", "items", "worldgen_biome", "worldgen_structure", "misc"};
+        @SuppressWarnings("unchecked")
+        Set<String>[] sets = new Set[]{entityTypesIds, blocksIds, itemsIds, worldgenBiomeIds, worldgenStructIds, miscIds};
+
+        for (int i = 0; i < names.length; i++) {
+            if (DumpConfig.persistentTrackingVal) {
+                mergeWithExisting(tagDir, names[i], sets[i]);
+            }
+            writeRegistryFile(tagDir, names[i], sets[i]);
+            RegistryDumperDeluxe.LOGGER.info("Dumped tags/{} ({} entries)", names[i], sets[i].size());
+        }
     }
 
     /* ===================== loot tables (split into subfolder) ===================== */
