@@ -20,6 +20,8 @@ public class DumpHelper {
     public static void writeJson(Path file, JsonElement json, boolean pretty) throws IOException {
         Files.createDirectories(file.getParent());
         String content = pretty ? PRETTY_GSON.toJson(json) : COMPACT_GSON.toJson(json);
+        // Normalize to CRLF so output displays correctly on Windows
+        content = content.replace("\r\n", "\n").replace("\n", "\r\n");
         Files.writeString(file, content, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }

@@ -22,6 +22,9 @@ import java.util.function.Predicate;
 
 public class RegistryDumper {
 
+    /** Line separator for all dump files — CRLF so output displays correctly on Windows. */
+    private static final String LINE_SEP = "\r\n";
+
     public static void dumpAll(MinecraftServer server, ResourceManager rm, Path dir) {
         // --- Mod list (non-persistent, overwritten every session) ---
         safeDump("mods", () -> dumpModList(dir));
@@ -70,7 +73,7 @@ public class RegistryDumper {
         Path file = dir.resolve("mods.txt");
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, String.join("\n", names) + "\n", StandardCharsets.UTF_8,
+            Files.writeString(file, String.join(LINE_SEP, names) + LINE_SEP, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
             RegistryDumperDeluxe.LOGGER.error("Failed to write mods", e);
@@ -319,9 +322,9 @@ public class RegistryDumper {
         sorted.sort(String.CASE_INSENSITIVE_ORDER);
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Total Elements: ").append(sorted.size()).append("\n");
+        sb.append("Total Elements: ").append(sorted.size()).append(LINE_SEP);
         for (String id : sorted) {
-            sb.append("\"").append(id).append("\",\n");
+            sb.append("\"").append(id).append("\",").append(LINE_SEP);
         }
 
         Path file = dir.resolve(fileName + ".json");
