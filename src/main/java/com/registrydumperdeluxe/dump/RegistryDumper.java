@@ -150,7 +150,7 @@ public class RegistryDumper {
             if (pathFilter != null && !pathFilter.test(relative)) continue;
             if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
 
-            ids.add(rl.getNamespace() + ":" + fullPath);
+            ids.add(cleanResourceId(rl.getNamespace(), fullPath, prefix, false));
         }
 
         if (DumpConfig.persistentTrackingVal) {
@@ -190,9 +190,9 @@ public class RegistryDumper {
             String relative = fullPath.substring("tags".length());
             if (relative.startsWith("/")) relative = relative.substring(1);
 
-            String id = rl.getNamespace() + ":" + fullPath;
-
             if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
+
+            String id = cleanResourceId(rl.getNamespace(), fullPath, "tags", true);
 
             if (relative.startsWith("entity_types/")) {
                 entityTypesIds.add(id);
@@ -251,7 +251,7 @@ public class RegistryDumper {
             // Skip blacklisted mods
             if (DumpConfig.isBlacklisted(rl.getNamespace())) continue;
 
-            String id = rl.getNamespace() + ":" + fullPath;
+            String id = cleanResourceId(rl.getNamespace(), fullPath, "loot_tables", false);
 
             if (relative.startsWith("entities/")) {
                 entityIds.add(id);
@@ -278,6 +278,34 @@ public class RegistryDumper {
 
     /* ===================== helpers ===================== */
 
+    /**
+     * Convert a raw ResourceManager path into a clean resource ID.
+     * <p>
+     * ResourceManager paths include the prefix folder (e.g. "tags/", "advancements/",
+     * "loot_tables/") and the ".json" file extension — neither is part of the
+     * logical resource ID. This method strips both.
+     * <p>
+     * For tags, a "#" prefix is prepended (Minecraft convention: {@code #namespace:path}).
+     *
+     * @param namespace  the resource namespace (e.g. "forge", "minecraft")
+     * @param fullPath   the raw path from ResourceLocation (e.g. "tags/items/swords.json")
+     * @param prefix     the prefix to strip (e.g. "tags", "advancements", "loot_tables")
+     * @param isTag      true to prepend "#" (tag reference)
+     * @return the cleaned ID, e.g. "#forge:items/swords" or "minecraft:story/root"
+     */
+    private static String cleanResourceId(String namespace, String fullPath, String prefix, boolean isTag) {
+        // Strip the prefix: "tags/items/swords.json" -> "items/swords.json"
+        String path = fullPath.substring(prefix.length());
+        if (path.startsWith("/")) path = path.substring(1);
+        // Strip .json suffix: "items/swords.json" -> "items/swords"
+        if (path.endsWith(".json")) path = path.substring(0, path.length() - 5);
+        // Build the ID: "forge:items/swords"
+        String id = namespace + ":" + path;
+        // Tags get # prefix: "#forge:items/swords"
+        if (isTag) id = "#" + id;
+        return id;
+    }
+
     private static Registry<?> findRegistry(String... possiblePaths) {
         for (Registry<?> reg : BuiltInRegistries.REGISTRY) {
             String path = reg.key().location().getPath();
@@ -303,8 +331,12 @@ public class RegistryDumper {
         return ids;
     }
 
-    /** Check if an ID's namespace is blacklisted. ID format: "namespace:path" */
+    /**
+     * Check if an ID's namespace is blacklisted.
+     * ID format: "namespace:path" or "#namespace:path" (tags).
+     */
     private static boolean isIdBlacklisted(String id) {
+        if (id.startsWith("#")) id = id.substring(1);
         int colon = id.indexOf(':');
         if (colon < 0) return false;
         return DumpConfig.isBlacklisted(id.substring(0, colon));
@@ -341,6 +373,7 @@ public class RegistryDumper {
      * Persistent merge: read existing .json file, extract IDs from
      * quoted lines, and add any that aren't in the current set.
      * Keeps entries from removed mods, but removes entries from blacklisted mods.
+     * Handles both plain IDs ("minecraft:apple") and tag IDs ("#forge:items/swords").
      */
     private static void mergeWithExisting(Path dir, String fileName, Set<String> current) {
         Path file = dir.resolve(fileName + ".json");
