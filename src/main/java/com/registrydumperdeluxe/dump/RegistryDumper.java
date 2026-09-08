@@ -1,5 +1,6 @@
 package com.registrydumperdeluxe.dump;
 
+import com.google.gson.*;
 import com.registrydumperdeluxe.RegistryDumperDeluxe;
 import com.registrydumperdeluxe.config.DumpConfig;
 import net.minecraft.core.Registry;
@@ -22,8 +23,14 @@ import java.util.function.Predicate;
 
 public class RegistryDumper {
 
-    /** Line separator for all dump files — CRLF so output displays correctly on Windows. */
+    /** Line separator for text files (mods.txt) — CRLF for Windows compatibility. */
     private static final String LINE_SEP = "\r\n";
+
+    /** Gson instance with pretty-printing for registry dump files. */
+    private static final Gson PRETTY_GSON = new GsonBuilder()
+            .setPrettyPrinting()
+            .disableHtmlEscaping()
+            .create();
 
     public static void dumpAll(MinecraftServer server, ResourceManager rm, Path dir) {
         // --- Mod list (non-persistent, overwritten every session) ---
@@ -343,26 +350,35 @@ public class RegistryDumper {
     }
 
     /**
-     * Write a registry dump file in the format:
-     *   Total Elements: 1234
-     *   "minecraft:apple",
-     *   "minecraft:acacia_boat",
-     *   ...
+     * Write a registry dump file as valid JSON:
+     * <pre>{
+     *   "total_elements": 1234,
+     *   "elements": [
+     *     "minecraft:apple",
+     *     "minecraft:acacia_boat"
+     *   ]
+     * }</pre>
      */
     private static void writeRegistryFile(Path dir, String fileName, Set<String> ids) {
         List<String> sorted = new ArrayList<>(ids);
         sorted.sort(String.CASE_INSENSITIVE_ORDER);
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Total Elements: ").append(sorted.size()).append(LINE_SEP);
+        JsonArray elements = new JsonArray();
         for (String id : sorted) {
-            sb.append("\"").append(id).append("\",").append(LINE_SEP);
+            elements.add(id);
         }
+
+        JsonObject root = new JsonObject();
+        root.addProperty("total_elements", sorted.size());
+        root.add("elements", elements);
 
         Path file = dir.resolve(fileName + ".json");
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8,
+            String json = PRETTY_GSON.toJson(root);
+            // Normalize line endings to CRLF for Windows compatibility
+            json = json.replace("\r\n", "\n").replace("\n", "\r\n");
+            Files.writeString(file, json, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
             RegistryDumperDeluxe.LOGGER.error("Failed to write {}", fileName, e);
@@ -370,27 +386,54 @@ public class RegistryDumper {
     }
 
     /**
-     * Persistent merge: read existing .json file, extract IDs from
-     * quoted lines, and add any that aren't in the current set.
+     * Persistent merge: read existing .json file, extract IDs from the
+     * "elements" array, and add any that aren't in the current set.
      * Keeps entries from removed mods, but removes entries from blacklisted mods.
-     * Handles both plain IDs ("minecraft:apple") and tag IDs ("#forge:items/swords").
+     * Handles both the old text format and the new JSON format.
      */
     private static void mergeWithExisting(Path dir, String fileName, Set<String> current) {
         Path file = dir.resolve(fileName + ".json");
         if (!Files.exists(file)) return;
 
         try {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+
+            // Try JSON format first (current format)
+            try {
+                JsonObject root = JsonParser.parseString(content).getAsJsonObject();
+                JsonArray elements = root.getAsJsonArray("elements");
+                if (elements != null) {
+                    int added = 0;
+                    int purged = 0;
+                    for (JsonElement elem : elements) {
+                        String id = elem.getAsString();
+                        if (isIdBlacklisted(id)) {
+                            purged++;
+                            continue;
+                        }
+                        if (current.add(id)) added++;
+                    }
+                    if (added > 0) {
+                        RegistryDumperDeluxe.LOGGER.info("Persisted {} old entries for {}", added, fileName);
+                    }
+                    if (purged > 0) {
+                        RegistryDumperDeluxe.LOGGER.info("Purged {} blacklisted entries from {}", purged, fileName);
+                    }
+                    return;
+                }
+            } catch (JsonSyntaxException ignored) {
+                // Not valid JSON — fall through to legacy text format
+            }
+
+            // Legacy text format: "id", per line (backward compatibility)
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
             int added = 0;
             int purged = 0;
             for (String line : lines) {
                 line = line.trim();
-                // Skip header line and empty lines
                 if (line.startsWith("Total") || line.isEmpty()) continue;
-                // Strip quotes and comma: "minecraft:apple", -> minecraft:apple
                 if (line.startsWith("\"") && line.endsWith("\",")) {
                     String id = line.substring(1, line.length() - 2);
-                    // Skip blacklisted mods — purge their old entries
                     if (isIdBlacklisted(id)) {
                         purged++;
                         continue;
